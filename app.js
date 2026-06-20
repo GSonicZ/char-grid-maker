@@ -17,6 +17,8 @@
 
   /* ---------------- State ---------------- */
 
+  var idCounter = 0;
+
   var state = loadState();
   if (!state || !Array.isArray(state.rows) || !Array.isArray(state.cols)) {
     state = defaultState();
@@ -26,8 +28,6 @@
   var pendingTarget = null;  // where a file picked via the hidden <input> should go
   var cropperCtx = null;     // active cropper session, see openCropperGeneric()
   var dragState = null;      // active pointer-drag session inside the crop modal
-
-  var idCounter = 0;
 
   function genId(prefix) {
     idCounter += 1;
