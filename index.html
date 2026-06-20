@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Character Grid Maker</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="toolbar">
+  <h1>Character Grid Maker</h1>
+
+  <div class="toolbar-group">
+    <label for="perLineInput">Images per row in cell</label>
+    <input type="number" id="perLineInput" min="1" max="8" value="3">
+  </div>
+
+  <div class="toolbar-group colors">
+    <label>Background <input type="color" id="bgColorInput" value="#000000"></label>
+    <label>Grid lines <input type="color" id="lineColorInput" value="#ffffff"></label>
+    <label>Text <input type="color" id="textColorInput" value="#ffffff"></label>
+  </div>
+
+  <div class="toolbar-group actions">
+    <button id="addRowBtn" type="button">+ Row</button>
+    <button id="addColBtn" type="button">+ Column</button>
+    <button id="exportPngBtn" type="button" class="primary">Export PNG</button>
+    <button id="saveProjectBtn" type="button">Save Project</button>
+    <button id="loadProjectBtn" type="button">Load Project</button>
+    <button id="resetBtn" type="button" class="danger">Reset</button>
+  </div>
+</header>
+
+<p class="hint">
+  Click the corner box or any header label to rename it. Click a header icon to set/replace it.
+  Click the dashed <strong>+</strong> tile, paste (Ctrl/Cmd+V), or drag &amp; drop images straight onto a cell to add them &mdash;
+  click any added image to reposition/zoom its crop or remove it.
+</p>
+
+<main id="tableWrap">
+  <div id="gridTable" class="grid-table"></div>
+</main>
+
+<input type="file" id="fileInputHidden" accept="image/*" multiple hidden>
+<input type="file" id="projectFileInputHidden" accept="application/json" hidden>
+
+<!-- Crop / reposition modal -->
+<div id="cropModal" class="modal hidden">
+  <div class="modal-box">
+    <h2>Adjust image</h2>
+    <canvas id="cropCanvas"></canvas>
+    <div class="crop-controls">
+      <span>Zoom</span>
+      <input type="range" id="cropZoomInput" min="1" max="4" step="0.01" value="1">
+    </div>
+    <div class="modal-actions">
+      <button id="cropRemoveBtn" type="button" class="danger">Remove</button>
+      <button id="cropCancelBtn" type="button">Cancel</button>
+      <button id="cropApplyBtn" type="button" class="primary">Apply</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Runs entirely in your browser &mdash; nothing is ever uploaded anywhere. Your table auto-saves to this browser,
+  but browser storage can be cleared or limited, so use <strong>Save Project</strong> regularly to keep a backup
+  file you can reload later with <strong>Load Project</strong>.
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
