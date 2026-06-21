@@ -208,6 +208,8 @@ main#tableWrap{
 }
 .cell.active{ outline:2px solid var(--accent); outline-offset:-2px; }
 .cell.drag-over{ outline:2px dashed var(--accent); outline-offset:-2px; background:rgba(79,209,197,0.08); }
+.header-cell.active{ outline:2px solid var(--accent); outline-offset:-2px; }
+.header-cell.drag-over{ outline:2px dashed var(--accent); outline-offset:-2px; background:rgba(79,209,197,0.08); }
 
 .img-tile{
   position:relative;

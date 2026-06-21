@@ -25,6 +25,7 @@
   }
 
   var activeCell = null;     // {row, col} ids of the last-clicked cell (paste target)
+  var activeHeader = null;   // {kind, id} of the last-clicked header icon (paste target)
   var pendingTarget = null;  // where a file picked via the hidden <input> should go
   var cropperCtx = null;     // active cropper session, see openCropperGeneric()
   var dragState = null;      // active pointer-drag session inside the crop modal
@@ -250,6 +251,9 @@
     if (activeCell && (kind === "row" ? activeCell.row === headerId : activeCell.col === headerId)) {
       activeCell = null;
     }
+    if (activeHeader && activeHeader.kind === kind && activeHeader.id === headerId) {
+      activeHeader = null;
+    }
     saveState();
     renderTable();
   }
@@ -318,7 +322,7 @@
   function buildHeaderCell(headerObj, kind) {
     var hasIcon = !!(headerObj.icon && headerObj.icon.cropped);
 
-    var cell = el("div", { class: "header-cell header-cell-" + kind });
+    var cell = el("div", { class: "header-cell header-cell-" + kind, "data-kind": kind, "data-id": headerObj.id });
 
     var delBtn = el("button", { class: "del-header-btn", type: "button", "data-kind": kind, "data-id": headerObj.id, title: "Delete" });
     delBtn.textContent = "\u00D7";
@@ -376,14 +380,31 @@
     root.setProperty("--text-color", state.textColor);
   }
 
-  function highlightActiveCell() {
-    var prev = gridTable.querySelectorAll(".cell.active");
+  function setActiveCell(row, col) {
+    activeCell = { row: row, col: col };
+    activeHeader = null;
+    updateActiveHighlights();
+  }
+
+  function setActiveHeader(kind, id) {
+    activeHeader = { kind: kind, id: id };
+    activeCell = null;
+    updateActiveHighlights();
+  }
+
+  function updateActiveHighlights() {
+    var prev = gridTable.querySelectorAll(".active");
     for (var i = 0; i < prev.length; i++) prev[i].classList.remove("active");
     if (activeCell) {
-      var found = gridTable.querySelector(
+      var foundCell = gridTable.querySelector(
         '.cell[data-row="' + activeCell.row + '"][data-col="' + activeCell.col + '"]'
       );
-      if (found) found.classList.add("active");
+      if (foundCell) foundCell.classList.add("active");
+    } else if (activeHeader) {
+      var foundHeader = gridTable.querySelector(
+        '.header-cell[data-kind="' + activeHeader.kind + '"][data-id="' + activeHeader.id + '"]'
+      );
+      if (foundHeader) foundHeader.classList.add("active");
     }
   }
 
@@ -404,7 +425,7 @@
       state.cols.forEach(function (col) { gridTable.appendChild(buildDataCell(row, col)); });
     });
 
-    highlightActiveCell();
+    updateActiveHighlights();
   }
 
   /* ---------------- Crop / reposition modal ---------------- */
@@ -452,8 +473,7 @@
     for (var i = 0; i < arr.length; i++) { if (arr[i].id === imgId) { ref = arr[i]; break; } }
     if (!ref) return;
 
-    activeCell = { row: rowId, col: colId };
-    highlightActiveCell();
+    setActiveCell(rowId, colId);
 
     openCropperGeneric(ref.original, ref.crop, IMG_SIZE,
       function (newCrop, newCropped) {
@@ -471,6 +491,8 @@
     var header = null;
     for (var i = 0; i < list.length; i++) { if (list[i].id === headerId) { header = list[i]; break; } }
     if (!header || !header.icon) return;
+
+    setActiveHeader(kind, headerId);
 
     openCropperGeneric(header.icon.original, header.icon.crop, ICON_SIZE,
       function (newCrop, newCropped) {
@@ -799,9 +821,9 @@
   gridTable.addEventListener("click", function (e) {
     var addTile = e.target.closest(".add-tile");
     if (addTile) {
-      activeCell = { row: addTile.getAttribute("data-row"), col: addTile.getAttribute("data-col") };
-      highlightActiveCell();
-      pendingTarget = { type: "cell", row: addTile.getAttribute("data-row"), col: addTile.getAttribute("data-col") };
+      var targetRow = addTile.getAttribute("data-row"), targetCol = addTile.getAttribute("data-col");
+      setActiveCell(targetRow, targetCol);
+      pendingTarget = { type: "cell", row: targetRow, col: targetCol };
       fileInputHidden.click();
       return;
     }
@@ -831,6 +853,7 @@
       if (iconBox.getAttribute("data-has-icon") === "true") {
         openCropperForHeaderIcon(kind, id);
       } else {
+        setActiveHeader(kind, id);
         pendingTarget = { type: "header-icon", kind: kind, id: id };
         fileInputHidden.click();
       }
@@ -845,39 +868,63 @@
 
     var cellEl = e.target.closest(".cell");
     if (cellEl) {
-      activeCell = { row: cellEl.getAttribute("data-row"), col: cellEl.getAttribute("data-col") };
-      highlightActiveCell();
+      setActiveCell(cellEl.getAttribute("data-row"), cellEl.getAttribute("data-col"));
+      return;
+    }
+
+    // Clicking elsewhere in a header cell (its padding, not the icon/label/delete
+    // button specifically) still marks it as the paste target for that header's icon.
+    var headerCellEl = e.target.closest(".header-cell");
+    if (headerCellEl) {
+      setActiveHeader(headerCellEl.getAttribute("data-kind"), headerCellEl.getAttribute("data-id"));
     }
   });
 
+  // Drag & drop and paste both need to know whether the user is pointing at a
+  // data cell (which can hold many images) or a header cell (a single icon).
+  function findDropTarget(e) {
+    if (!e.target || !e.target.closest) return null;
+    var cellEl = e.target.closest(".cell");
+    if (cellEl) return { type: "cell", el: cellEl };
+    var headerEl = e.target.closest(".header-cell");
+    if (headerEl) return { type: "header", el: headerEl };
+    return null;
+  }
+
   gridTable.addEventListener("dragover", function (e) {
-    var cellEl = e.target.closest ? e.target.closest(".cell") : null;
-    if (cellEl) {
+    var target = findDropTarget(e);
+    if (target) {
       e.preventDefault();
-      cellEl.classList.add("drag-over");
+      target.el.classList.add("drag-over");
     }
   });
   gridTable.addEventListener("dragleave", function (e) {
-    var cellEl = e.target.closest ? e.target.closest(".cell") : null;
-    if (cellEl) cellEl.classList.remove("drag-over");
+    var target = findDropTarget(e);
+    if (target) target.el.classList.remove("drag-over");
   });
   gridTable.addEventListener("drop", function (e) {
-    var cellEl = e.target.closest ? e.target.closest(".cell") : null;
-    if (!cellEl) return;
+    var target = findDropTarget(e);
+    if (!target) return;
     e.preventDefault();
-    cellEl.classList.remove("drag-over");
+    target.el.classList.remove("drag-over");
     var files = Array.prototype.filter.call(e.dataTransfer.files || [], function (f) {
       return f.type && f.type.indexOf("image/") === 0;
     });
-    if (files.length) {
-      var row = cellEl.getAttribute("data-row"), col = cellEl.getAttribute("data-col");
-      activeCell = { row: row, col: col };
+    if (!files.length) return;
+
+    if (target.type === "cell") {
+      var row = target.el.getAttribute("data-row"), col = target.el.getAttribute("data-col");
+      setActiveCell(row, col);
       addImagesToCell(row, col, files);
+    } else {
+      var kind = target.el.getAttribute("data-kind"), id = target.el.getAttribute("data-id");
+      setActiveHeader(kind, id);
+      addHeaderIcon(kind, id, files[0]); // a header only ever holds one icon
     }
   });
 
   document.addEventListener("paste", function (e) {
-    if (!activeCell) return;
+    if (!activeCell && !activeHeader) return;
     var items = e.clipboardData && e.clipboardData.items;
     if (!items) return;
     var files = [];
@@ -888,9 +935,12 @@
         if (f) files.push(f);
       }
     }
-    if (files.length) {
-      e.preventDefault();
+    if (!files.length) return;
+    e.preventDefault();
+    if (activeCell) {
       addImagesToCell(activeCell.row, activeCell.col, files);
+    } else {
+      addHeaderIcon(activeHeader.kind, activeHeader.id, files[0]); // a header only ever holds one icon
     }
   });
 
